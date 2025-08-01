@@ -1,4 +1,4 @@
-# FluentCRM CLI v1.2 - Complete Testing Guide
+# FluentCRM CLI v1.2 - Complete Testing Guide.
 
 This document provides a sequential test plan to verify every single command in the FluentCRM CLI tool.
 
