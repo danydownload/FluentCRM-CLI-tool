@@ -18,6 +18,14 @@ class FluentCRMClient:
         username = os.getenv("FLUENT_USER")
         password = os.getenv("FLUENT_PASSWORD")
 
+        # Strip quotes if present (handles values with spaces in .env files)
+        if base_url and base_url.startswith('"') and base_url.endswith('"'):
+            base_url = base_url[1:-1]
+        if username and username.startswith('"') and username.endswith('"'):
+            username = username[1:-1]
+        if password and password.startswith('"') and password.endswith('"'):
+            password = password[1:-1]
+
         if not all([base_url, username, password]):
             print("Error: Please set FLUENT_URL, FLUENT_USER, and FLUENT_PASSWORD env vars.", file=sys.stderr)
             sys.exit(1)
