@@ -45,8 +45,13 @@ class FluentCRMClient:
             return response.json()
         except requests.exceptions.RequestException as e:
             print(f"API Error: {e}", file=sys.stderr)
-            if e.response:
-                print(f"Response Body: {e.response.text}", file=sys.stderr)
+            if hasattr(e, 'response') and e.response is not None:
+                print(f"Response Status: {e.response.status_code}", file=sys.stderr)
+                try:
+                    error_json = e.response.json()
+                    print(f"Response Body: {json.dumps(error_json, indent=2)}", file=sys.stderr)
+                except:
+                    print(f"Response Body: {e.response.text}", file=sys.stderr)
             sys.exit(1)
 
     # --- Contact Management ---

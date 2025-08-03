@@ -46,12 +46,14 @@ FLUENT_USER=your-api-user
 FLUENT_PASSWORD=your-api-password
 ```
 
-**2. Set Other Environment Variables:**
-Set the following environment variables in your terminal. These will be used by the test script.
+**2. Set the Docker Image Variable:**
+Set the DOCKER_IMAGE environment variable in your terminal session:
 ```bash
-# This is the name of the Docker image from Docker Hub
+# Set the Docker image to use
 export DOCKER_IMAGE="cyberniolo/fluentcrm-cli-tool:latest"
-export TIMESTAMP=$(date +%s)
+
+# Or if using a locally built image:
+# export DOCKER_IMAGE="fluent-crm-cli:local-test"
 ```
 
 ## Accessing Built-in Documentation
@@ -89,41 +91,41 @@ All commands below will use the `fluent.env` file for credentials, keeping the c
 
 #### 1.1 Get All Existing Tags (Export to CSV)
 ```bash
-docker run --rm --env-file fluent.env "$DOCKER_IMAGE" get-tags > existing_tags_$TIMESTAMP.csv
+docker run --rm --env-file fluent.env "$DOCKER_IMAGE" get-tags > existing_tags.csv
 
-echo "✓ Exported existing tags to existing_tags_$TIMESTAMP.csv"
-echo "Tag count: $(wc -l < existing_tags_$TIMESTAMP.csv)"
+echo "✓ Exported existing tags to existing_tags.csv"
+echo "Tag count: $(wc -l < existing_tags.csv)"
 ```
 
 #### 1.2 Create Multiple Test Tags
 ```bash
 # Create Tag 1
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" create-tag \
-    --title "Test Tag Alpha $TIMESTAMP" \
-    --slug "test-tag-alpha-$TIMESTAMP" \
+    --title "Test Tag Alpha" \
+    --slug "test-tag-alpha" \
     --description "This is the first test tag."
 
 # Create Tag 2
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" create-tag \
-    --title "Test Tag Beta $TIMESTAMP" \
-    --slug "test-tag-beta-$TIMESTAMP" \
+    --title "Test Tag Beta" \
+    --slug "test-tag-beta" \
     --description "This is the second test tag."
 
 # Create Tag 3
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" create-tag \
-    --title "Test Tag Gamma $TIMESTAMP" \
-    --slug "test-tag-gamma-$TIMESTAMP" \
+    --title "Test Tag Gamma" \
+    --slug "test-tag-gamma" \
     --description "This is the third test tag."
 ```
 
 #### 1.3 Get Tags Again to Find Our Test Tags
 ```bash
-docker run --rm --env-file fluent.env "$DOCKER_IMAGE" get-tags > all_tags_after_create_$TIMESTAMP.csv
+docker run --rm --env-file fluent.env "$DOCKER_IMAGE" get-tags > all_tags_after_create.csv
 
 # Extract our test tag IDs
-TAG_ID_1=$(grep "test-tag-alpha-$TIMESTAMP" all_tags_after_create_$TIMESTAMP.csv | cut -d',' -f1)
-TAG_ID_2=$(grep "test-tag-beta-$TIMESTAMP" all_tags_after_create_$TIMESTAMP.csv | cut -d',' -f1)
-TAG_ID_3=$(grep "test-tag-gamma-$TIMESTAMP" all_tags_after_create_$TIMESTAMP.csv | cut -d',' -f1)
+TAG_ID_1=$(grep "test-tag-alpha" all_tags_after_create.csv | cut -d',' -f1)
+TAG_ID_2=$(grep "test-tag-beta" all_tags_after_create.csv | cut -d',' -f1)
+TAG_ID_3=$(grep "test-tag-gamma" all_tags_after_create.csv | cut -d',' -f1)
 
 echo "Created tags with IDs: $TAG_ID_1, $TAG_ID_2, $TAG_ID_3"
 ```
@@ -132,31 +134,31 @@ echo "Created tags with IDs: $TAG_ID_1, $TAG_ID_2, $TAG_ID_3"
 
 #### 2.1 Get All Existing Lists
 ```bash
-docker run --rm --env-file fluent.env "$DOCKER_IMAGE" get-lists > existing_lists_$TIMESTAMP.csv
+docker run --rm --env-file fluent.env "$DOCKER_IMAGE" get-lists > existing_lists.csv
 
-echo "✓ Exported existing lists to existing_lists_$TIMESTAMP.csv"
+echo "✓ Exported existing lists to existing_lists.csv"
 ```
 
 #### 2.2 Create Multiple Test Lists
 ```bash
 # Create List 1
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" create-list \
-    --title "Test List Primary $TIMESTAMP" \
-    --slug "test-list-primary-$TIMESTAMP"
+    --title "Test List Primary" \
+    --slug "test-list-primary"
 
 # Create List 2
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" create-list \
-    --title "Test List Secondary $TIMESTAMP" \
-    --slug "test-list-secondary-$TIMESTAMP"
+    --title "Test List Secondary" \
+    --slug "test-list-secondary"
 ```
 
 #### 2.3 Get Lists to Find Our Test List IDs
 ```bash
-docker run --rm --env-file fluent.env "$DOCKER_IMAGE" get-lists > all_lists_after_create_$TIMESTAMP.csv
+docker run --rm --env-file fluent.env "$DOCKER_IMAGE" get-lists > all_lists_after_create.csv
 
 # Extract our test list IDs
-LIST_ID_1=$(grep "test-list-primary-$TIMESTAMP" all_lists_after_create_$TIMESTAMP.csv | cut -d',' -f1)
-LIST_ID_2=$(grep "test-list-secondary-$TIMESTAMP" all_lists_after_create_$TIMESTAMP.csv | cut -d',' -f1)
+LIST_ID_1=$(grep "test-list-primary" all_lists_after_create.csv | cut -d',' -f1)
+LIST_ID_2=$(grep "test-list-secondary" all_lists_after_create.csv | cut -d',' -f1)
 
 echo "Created lists with IDs: $LIST_ID_1, $LIST_ID_2"
 ```
@@ -165,7 +167,7 @@ echo "Created lists with IDs: $LIST_ID_1, $LIST_ID_2"
 ```bash
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" update-list \
     --id "$LIST_ID_1" \
-    --title "Updated Test List Primary $TIMESTAMP"
+    --title "Updated Test List Primary"
 ```
 
 ### Phase 3: Contact Management Testing
@@ -174,7 +176,7 @@ docker run --rm --env-file fluent.env "$DOCKER_IMAGE" update-list \
 ```bash
 # Contact 1: With tags and lists
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" create-contact \
-    --email "test.contact.1.$TIMESTAMP@example.com" \
+    --email "test.contact.1@example.com" \
     --first-name "Test" \
     --last-name "Contact One" \
     --tags "$TAG_ID_1,$TAG_ID_2" \
@@ -182,14 +184,14 @@ docker run --rm --env-file fluent.env "$DOCKER_IMAGE" create-contact \
 
 # Contact 2: With only lists
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" create-contact \
-    --email "test.contact.2.$TIMESTAMP@example.com" \
+    --email "test.contact.2@example.com" \
     --first-name "Test" \
     --last-name "Contact Two" \
     --lists "$LIST_ID_2"
 
 # Contact 3: Plain contact (no tags or lists)
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" create-contact \
-    --email "test.contact.3.$TIMESTAMP@example.com" \
+    --email "test.contact.3@example.com" \
     --first-name "Test" \
     --last-name "Contact Three"
 ```
@@ -197,13 +199,13 @@ docker run --rm --env-file fluent.env "$DOCKER_IMAGE" create-contact \
 #### 3.2 Get Contact by Email
 ```bash
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" get-contact \
-    --email "test.contact.1.$TIMESTAMP@example.com"
+    --email "test.contact.1@example.com"
 ```
 
 #### 3.3 Get Contact by ID
 ```bash
 # First, get the contact to find its ID
-CONTACT_INFO=$(docker run --rm --env-file fluent.env "$DOCKER_IMAGE" get-contact --email "test.contact.2.$TIMESTAMP@example.com")
+CONTACT_INFO=$(docker run --rm --env-file fluent.env "$DOCKER_IMAGE" get-contact --email "test.contact.2@example.com")
 
 # Use jq to reliably parse the ID
 CONTACT_ID=$(echo "$CONTACT_INFO" | jq '.id')
@@ -216,7 +218,7 @@ docker run --rm --env-file fluent.env "$DOCKER_IMAGE" get-contact --id "$CONTACT
 ```bash
 # Replace all tags with just TAG_ID_3
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" update-contact-tags \
-    --email "test.contact.1.$TIMESTAMP@example.com" \
+    --email "test.contact.1@example.com" \
     --tags "$TAG_ID_3"
 ```
 
@@ -224,7 +226,7 @@ docker run --rm --env-file fluent.env "$DOCKER_IMAGE" update-contact-tags \
 ```bash
 # Add TAG_ID_1 back without removing TAG_ID_3
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" update-contact-tags \
-    --email "test.contact.1.$TIMESTAMP@example.com" \
+    --email "test.contact.1@example.com" \
     --tags "$TAG_ID_1" \
     --append
 ```
@@ -233,7 +235,7 @@ docker run --rm --env-file fluent.env "$DOCKER_IMAGE" update-contact-tags \
 ```bash
 # Replace all lists with LIST_ID_2
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" update-contact-lists \
-    --email "test.contact.1.$TIMESTAMP@example.com" \
+    --email "test.contact.1@example.com" \
     --lists "$LIST_ID_2"
 ```
 
@@ -241,7 +243,7 @@ docker run --rm --env-file fluent.env "$DOCKER_IMAGE" update-contact-lists \
 ```bash
 # Add LIST_ID_1 back
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" update-contact-lists \
-    --email "test.contact.1.$TIMESTAMP@example.com" \
+    --email "test.contact.1@example.com" \
     --lists "$LIST_ID_1" \
     --append
 ```
@@ -251,13 +253,13 @@ docker run --rm --env-file fluent.env "$DOCKER_IMAGE" update-contact-lists \
 #### 4.1 Delete Contact by Email
 ```bash
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" delete-contact \
-    --email "test.contact.1.$TIMESTAMP@example.com"
+    --email "test.contact.1@example.com"
 ```
 
 #### 4.2 Delete Contact by ID
 ```bash
 # Get contact 2's ID first
-CONTACT_2_INFO=$(docker run --rm --env-file fluent.env "$DOCKER_IMAGE" get-contact --email "test.contact.2.$TIMESTAMP@example.com")
+CONTACT_2_INFO=$(docker run --rm --env-file fluent.env "$DOCKER_IMAGE" get-contact --email "test.contact.2@example.com")
 CONTACT_2_ID=$(echo "$CONTACT_2_INFO" | jq '.id')
 
 # Delete by ID
@@ -280,5 +282,5 @@ docker run --rm --env-file fluent.env "$DOCKER_IMAGE" delete-list --id "$LIST_ID
 #### 4.5 Cleanup Remaining Test Contact
 ```bash
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" delete-contact \
-    --email "test.contact.3.$TIMESTAMP@example.com"
+    --email "test.contact.3@example.com"
 ```
