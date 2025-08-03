@@ -106,12 +106,14 @@ docker run --rm --env-file fluent.env "$DOCKER_IMAGE" create-tag \
 # Create Tag 2
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" create-tag \
     --title "Test Tag Beta $TIMESTAMP" \
-    --slug "test-tag-beta-$TIMESTAMP"
+    --slug "test-tag-beta-$TIMESTAMP" \
+    --description "This is the second test tag."
 
 # Create Tag 3
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" create-tag \
     --title "Test Tag Gamma $TIMESTAMP" \
-    --slug "test-tag-gamma-$TIMESTAMP"
+    --slug "test-tag-gamma-$TIMESTAMP" \
+    --description "This is the third test tag."
 ```
 
 #### 1.3 Get Tags Again to Find Our Test Tags
