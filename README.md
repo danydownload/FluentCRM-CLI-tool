@@ -74,7 +74,8 @@ echo "Tag count: $(wc -l < existing_tags_$TIMESTAMP.csv)"
 # Create Tag 1
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" create-tag \
     --title "Test Tag Alpha $TIMESTAMP" \
-    --slug "test-tag-alpha-$TIMESTAMP"
+    --slug "test-tag-alpha-$TIMESTAMP" \
+    --description "This is the first test tag."
 
 # Create Tag 2
 docker run --rm --env-file fluent.env "$DOCKER_IMAGE" create-tag \

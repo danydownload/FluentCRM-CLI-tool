@@ -172,9 +172,12 @@ class FluentCRMClient:
         else:
             print("id,title,slug,created_at,updated_at", file=sys.stdout)
 
-    def create_tag(self, title, slug):
+    def create_tag(self, title, slug, description=None):
         """Create a new tag."""
-        return self._request("POST", "tags", data={"title": title, "slug": slug})
+        data = {"title": title, "slug": slug}
+        if description:
+            data["description"] = description
+        return self._request("POST", "tags", data=data)
 
     def delete_tag(self, tag_id):
         """Delete a tag by its ID."""
@@ -289,6 +292,7 @@ def main():
     create_tag_parser = subparsers.add_parser("create-tag", help="Create a new tag.")
     create_tag_parser.add_argument("--title", required=True)
     create_tag_parser.add_argument("--slug", required=True)
+    create_tag_parser.add_argument("--description", help="An optional description for the tag.")
     delete_tag_parser = subparsers.add_parser("delete-tag", help="Delete a tag.")
     delete_tag_parser.add_argument("--id", required=True, type=int)
 
@@ -322,7 +326,7 @@ def main():
     elif args.command == "get-tags":
         client.get_tags()
     elif args.command == "create-tag":
-        result = client.create_tag(args.title, args.slug)
+        result = client.create_tag(args.title, args.slug, args.description)
     elif args.command == "delete-tag":
         result = client.delete_tag(args.id)
     elif args.command == "get-lists":
