@@ -1,13 +1,39 @@
-# FluentCRM CLI v1.2 - Complete Testing Guide.
+# FluentCRM CLI - Complete Testing Guide
 
 This document provides a sequential test plan to verify every single command in the FluentCRM CLI tool.
+
+## Getting Started
+
+### Download the Docker Image
+
+First, pull the latest FluentCRM CLI tool from Docker Hub:
+
+```bash
+docker pull cyberniolo/fluentcrm-cli-tool:latest
+```
+
+### Quick Start from Terminal
+
+Once you have the image, you can run commands directly:
+
+```bash
+# Basic usage example
+docker run --rm cyberniolo/fluentcrm-cli-tool:latest --help
+
+# Run with environment variables
+docker run --rm \
+  -e FLUENT_URL="https://your-site.com" \
+  -e FLUENT_USER="your-api-user" \
+  -e FLUENT_PASSWORD="your-api-password" \
+  cyberniolo/fluentcrm-cli-tool:latest get-tags
+```
 
 ## Test Setup
 
 ### Prerequisites
-- Docker installed and running.
-- The `fluent-crm-cli:v1.2` image is built and available locally.
-- `jq` command-line JSON processor installed (recommended for parsing results).
+- Docker installed and running
+- The `cyberniolo/fluentcrm-cli-tool:latest` image downloaded from Docker Hub
+- `jq` command-line JSON processor installed (recommended for parsing results)
 
 ### Environment Setup
 
@@ -23,31 +49,31 @@ FLUENT_PASSWORD=your-api-password
 **2. Set Other Environment Variables:**
 Set the following environment variables in your terminal. These will be used by the test script.
 ```bash
-# This is the name of the local Docker image you built
-export DOCKER_IMAGE="fluent-crm-cli:v1.2"
+# This is the name of the Docker image from Docker Hub
+export DOCKER_IMAGE="cyberniolo/fluentcrm-cli-tool:latest"
 export TIMESTAMP=$(date +%s)
 ```
 
 ## Accessing Built-in Documentation
 
-The `fluent-crm-cli` Docker image includes its documentation inside the container in the `/docs/` directory.
+The `cyberniolo/fluentcrm-cli-tool` Docker image includes its documentation inside the container in the `/docs/` directory.
 
 Because the image has a default `ENTRYPOINT` that runs the Python script, you must override it to run other commands like `ls` or `cat`.
 
 **List all documentation files:**
 ```bash
-docker run --rm --entrypoint ls fluent-crm-cli:v1.2 /docs/
+docker run --rm --entrypoint ls cyberniolo/fluentcrm-cli-tool:latest /docs/
 ```
 
 **View a specific documentation file:**
 ```bash
-docker run --rm --entrypoint cat fluent-crm-cli:v1.2 /docs/README.md
+docker run --rm --entrypoint cat cyberniolo/fluentcrm-cli-tool:latest /docs/README.md
 ```
 
 **Copy all documentation to your local machine:**
 ```bash
 # Create a temporary container
-ID=$(docker create fluent-crm-cli:v1.2)
+ID=$(docker create cyberniolo/fluentcrm-cli-tool:latest)
 
 # Copy the /docs directory from the container to your current location
 docker cp "$ID:/docs" .
