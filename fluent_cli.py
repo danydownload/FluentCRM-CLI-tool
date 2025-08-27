@@ -2,6 +2,7 @@
 """
 A standalone, multi-function CLI tool for managing FluentCRM (v1.2).
 Reads credentials from environment variables for security.
+Enhanced with bulk tag creation from CSV.
 """
 import os
 import sys
@@ -10,6 +11,7 @@ import argparse
 import requests
 import base64
 import csv
+import time
 
 class FluentCRMClient:
     """A simple client to interact with the FluentCRM REST API."""
@@ -188,6 +190,111 @@ class FluentCRMClient:
         """Delete a tag by its ID."""
         return self._request("DELETE", f"tags/{tag_id}")
 
+    def bulk_create_tags(self, input_csv, output_csv, delay=0.5):
+        """
+        Bulk create tags from a CSV file.
+        
+        Args:
+            input_csv: Path to CSV file with columns: title, slug, description
+            output_csv: Path to output CSV file that will include the generated IDs
+            delay: Delay in seconds between API calls to avoid rate limiting
+        
+        Returns:
+            Number of successfully created tags
+        """
+        created_tags = []
+        failed_tags = []
+        
+        # Read the input CSV
+        try:
+            with open(input_csv, 'r', newline='', encoding='utf-8') as infile:
+                reader = csv.DictReader(infile)
+                
+                # Validate required columns
+                required_columns = {'title', 'slug'}
+                if not required_columns.issubset(reader.fieldnames):
+                    print(f"Error: CSV must contain at least 'title' and 'slug' columns", file=sys.stderr)
+                    sys.exit(1)
+                
+                rows = list(reader)
+                total = len(rows)
+                
+                print(f"Starting bulk creation of {total} tags...", file=sys.stderr)
+                
+                for i, row in enumerate(rows, 1):
+                    print(f"Creating tag {i}/{total}: {row['title']}...", file=sys.stderr)
+                    
+                    try:
+                        # Create the tag
+                        result = self.create_tag(
+                            title=row['title'],
+                            slug=row['slug'],
+                            description=row.get('description', None)
+                        )
+                        
+                        # Add the ID to the row data
+                        tag_data = row.copy()
+                        
+                        # Extract the ID from the response
+                        if 'tag' in result and 'id' in result['tag']:
+                            tag_data['id'] = result['tag']['id']
+                        elif 'id' in result:
+                            tag_data['id'] = result['id']
+                        else:
+                            print(f"Warning: Could not extract ID from response for tag '{row['title']}'", file=sys.stderr)
+                            tag_data['id'] = None
+                            
+                        created_tags.append(tag_data)
+                        
+                        # Add a delay to avoid rate limiting
+                        if i < total:  # Don't delay after the last tag
+                            time.sleep(delay)
+                            
+                    except Exception as e:
+                        print(f"Failed to create tag '{row['title']}': {e}", file=sys.stderr)
+                        failed_tag = row.copy()
+                        failed_tag['id'] = None
+                        failed_tag['error'] = str(e)
+                        failed_tags.append(failed_tag)
+                        
+        except FileNotFoundError:
+            print(f"Error: Input file '{input_csv}' not found", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error reading input CSV: {e}", file=sys.stderr)
+            sys.exit(1)
+        
+        # Write the output CSV
+        try:
+            with open(output_csv, 'w', newline='', encoding='utf-8') as outfile:
+                if created_tags:
+                    # Define fieldnames with 'id' first, then the original columns
+                    fieldnames = ['id'] + [col for col in reader.fieldnames if col != 'id']
+                    
+                    writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(created_tags)
+                    
+                    print(f"\nSuccessfully created {len(created_tags)} tags", file=sys.stderr)
+                    print(f"Output saved to: {output_csv}", file=sys.stderr)
+                else:
+                    print("No tags were created successfully", file=sys.stderr)
+                    
+                if failed_tags:
+                    failed_csv = output_csv.replace('.csv', '_failed.csv')
+                    with open(failed_csv, 'w', newline='', encoding='utf-8') as failfile:
+                        fail_fieldnames = list(failed_tags[0].keys())
+                        fail_writer = csv.DictWriter(failfile, fieldnames=fail_fieldnames)
+                        fail_writer.writeheader()
+                        fail_writer.writerows(failed_tags)
+                    print(f"Failed tags saved to: {failed_csv}", file=sys.stderr)
+                    
+        except Exception as e:
+            print(f"Error writing output CSV: {e}", file=sys.stderr)
+            sys.exit(1)
+            
+        return len(created_tags)
+
     # --- List Management ---
     def get_lists(self):
         """Retrieve ALL lists by handling both paginated and simple list responses, then print as CSV."""
@@ -300,6 +407,14 @@ def main():
     create_tag_parser.add_argument("--description", help="An optional description for the tag.")
     delete_tag_parser = subparsers.add_parser("delete-tag", help="Delete a tag.")
     delete_tag_parser.add_argument("--id", required=True, type=int)
+    
+    # --- Bulk Tag Creation ---
+    bulk_tags_parser = subparsers.add_parser("bulk-create-tags", 
+        help="Bulk create tags from a CSV file. CSV must have columns: title, slug, description (optional)")
+    bulk_tags_parser.add_argument("--input", required=True, help="Input CSV file path")
+    bulk_tags_parser.add_argument("--output", required=True, help="Output CSV file path (will include IDs)")
+    bulk_tags_parser.add_argument("--delay", type=float, default=0.5, 
+        help="Delay in seconds between API calls to avoid rate limiting (default: 0.5)")
 
     # --- List Commands ---
     subparsers.add_parser("get-lists", help="Retrieve all lists as a CSV.")
@@ -334,6 +449,9 @@ def main():
         result = client.create_tag(args.title, args.slug, args.description)
     elif args.command == "delete-tag":
         result = client.delete_tag(args.id)
+    elif args.command == "bulk-create-tags":
+        created = client.bulk_create_tags(args.input, args.output, args.delay)
+        print(f"\nBulk operation completed: {created} tags created successfully")
     elif args.command == "get-lists":
         client.get_lists()
     elif args.command == "create-list":
