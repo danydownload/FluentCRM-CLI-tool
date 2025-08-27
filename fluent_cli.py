@@ -180,7 +180,7 @@ class FluentCRMClient:
             print("id,title,slug,created_at,updated_at", file=sys.stdout)
 
     def create_tag(self, title, slug, description=None):
-        """Create a new tag."""
+        """Create a new tag. Returns the response which contains the created tag with ID."""
         data = {"title": title, "slug": slug}
         if description:
             data["description"] = description
@@ -235,13 +235,38 @@ class FluentCRMClient:
                         # Add the ID to the row data
                         tag_data = row.copy()
                         
-                        # Extract the ID from the response
-                        if 'tag' in result and 'id' in result['tag']:
-                            tag_data['id'] = result['tag']['id']
-                        elif 'id' in result:
-                            tag_data['id'] = result['id']
+                        # Extract the ID from the response - try multiple paths
+                        tag_id = None
+                        
+                        # Try different response structures
+                        if isinstance(result, dict):
+                            # Try path 1: result['lists']['id'] (sometimes API returns 'lists' for tags!)
+                            if 'lists' in result and isinstance(result['lists'], dict):
+                                tag_id = result['lists'].get('id')
+                            # Try path 2: result['item']['id'] (generic item response)
+                            elif 'item' in result and isinstance(result['item'], dict):
+                                tag_id = result['item'].get('id')
+                            # Try path 3: result['tags']['id'] (expected for tags)
+                            elif 'tags' in result and isinstance(result['tags'], dict):
+                                tag_id = result['tags'].get('id')
+                            # Try path 4: result['tag']['id'] (singular)
+                            elif 'tag' in result and isinstance(result['tag'], dict):
+                                tag_id = result['tag'].get('id')
+                            # Try path 5: result['id']
+                            elif 'id' in result:
+                                tag_id = result['id']
+                            # Try path 6: result itself might be the tag object
+                            elif 'title' in result and 'slug' in result:
+                                # If result contains tag fields, it might be the tag itself
+                                tag_id = result.get('id')
+                        
+                        if tag_id:
+                            tag_data['id'] = tag_id
+                            print(f"  ✓ Created with ID: {tag_id}", file=sys.stderr)
                         else:
+                            # Log the full response for debugging
                             print(f"Warning: Could not extract ID from response for tag '{row['title']}'", file=sys.stderr)
+                            print(f"  Response structure: {json.dumps(result, indent=2)}", file=sys.stderr)
                             tag_data['id'] = None
                             
                         created_tags.append(tag_data)
@@ -365,6 +390,129 @@ class FluentCRMClient:
         """Delete a list by its ID."""
         return self._request("DELETE", f"lists/{list_id}")
 
+    # --- Bulk List Management ---
+    def bulk_create_lists(self, input_csv, output_csv, delay=0.5):
+        """
+        Bulk create lists from a CSV file.
+        
+        Args:
+            input_csv: Path to CSV file with columns: title, slug
+            output_csv: Path to output CSV file that will include the generated IDs
+            delay: Delay in seconds between API calls to avoid rate limiting
+        
+        Returns:
+            Number of successfully created lists
+        """
+        created_lists = []
+        failed_lists = []
+        
+        # Read the input CSV
+        try:
+            with open(input_csv, 'r', newline='', encoding='utf-8') as infile:
+                reader = csv.DictReader(infile)
+                
+                # Validate required columns
+                required_columns = {'title', 'slug'}
+                if not required_columns.issubset(reader.fieldnames):
+                    print(f"Error: CSV must contain at least 'title' and 'slug' columns", file=sys.stderr)
+                    sys.exit(1)
+                
+                rows = list(reader)
+                total = len(rows)
+                
+                print(f"Starting bulk creation of {total} lists...", file=sys.stderr)
+                
+                for i, row in enumerate(rows, 1):
+                    print(f"Creating list {i}/{total}: {row['title']}...", file=sys.stderr)
+                    
+                    try:
+                        # Create the list
+                        result = self.create_list(
+                            title=row['title'],
+                            slug=row['slug']
+                        )
+                        
+                        # Add the ID to the row data
+                        list_data = row.copy()
+                        
+                        # Extract the ID from the response - try multiple paths
+                        list_id = None
+                        
+                        # Try different response structures (similar to tags)
+                        if isinstance(result, dict):
+                            # Try path 1: result['lists']['id'] (most common)
+                            if 'lists' in result and isinstance(result['lists'], dict):
+                                list_id = result['lists'].get('id')
+                            # Try path 2: result['item']['id'] (generic item response)
+                            elif 'item' in result and isinstance(result['item'], dict):
+                                list_id = result['item'].get('id')
+                            # Try path 3: result['list']['id'] (singular)
+                            elif 'list' in result and isinstance(result['list'], dict):
+                                list_id = result['list'].get('id')
+                            # Try path 4: result['id']
+                            elif 'id' in result:
+                                list_id = result['id']
+                        
+                        if list_id:
+                            list_data['id'] = list_id
+                            print(f"  ✓ Created with ID: {list_id}", file=sys.stderr)
+                        else:
+                            # Log the full response for debugging
+                            print(f"Warning: Could not extract ID from response for list '{row['title']}'", file=sys.stderr)
+                            print(f"  Response structure: {json.dumps(result, indent=2)}", file=sys.stderr)
+                            list_data['id'] = None
+                            
+                        created_lists.append(list_data)
+                        
+                        # Add a delay to avoid rate limiting
+                        if i < total:  # Don't delay after the last list
+                            time.sleep(delay)
+                            
+                    except Exception as e:
+                        print(f"Failed to create list '{row['title']}': {e}", file=sys.stderr)
+                        failed_list = row.copy()
+                        failed_list['id'] = None
+                        failed_list['error'] = str(e)
+                        failed_lists.append(failed_list)
+                        
+        except FileNotFoundError:
+            print(f"Error: Input file '{input_csv}' not found", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error reading input CSV: {e}", file=sys.stderr)
+            sys.exit(1)
+        
+        # Write the output CSV
+        try:
+            with open(output_csv, 'w', newline='', encoding='utf-8') as outfile:
+                if created_lists:
+                    # Define fieldnames with 'id' first, then the original columns
+                    fieldnames = ['id'] + [col for col in reader.fieldnames if col != 'id']
+                    
+                    writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(created_lists)
+                    
+                    print(f"\nSuccessfully created {len(created_lists)} lists", file=sys.stderr)
+                    print(f"Output saved to: {output_csv}", file=sys.stderr)
+                else:
+                    print("No lists were created successfully", file=sys.stderr)
+                    
+                if failed_lists:
+                    failed_csv = output_csv.replace('.csv', '_failed.csv')
+                    with open(failed_csv, 'w', newline='', encoding='utf-8') as failfile:
+                        fail_fieldnames = list(failed_lists[0].keys())
+                        fail_writer = csv.DictWriter(failfile, fieldnames=fail_fieldnames)
+                        fail_writer.writeheader()
+                        fail_writer.writerows(failed_lists)
+                    print(f"Failed lists saved to: {failed_csv}", file=sys.stderr)
+                    
+        except Exception as e:
+            print(f"Error writing output CSV: {e}", file=sys.stderr)
+            sys.exit(1)
+            
+        return len(created_lists)
+
 
 def main():
     """Main function to parse arguments and execute commands."""
@@ -428,6 +576,14 @@ def main():
     delete_list_parser = subparsers.add_parser("delete-list", help="Delete a list.")
     delete_list_parser.add_argument("--id", required=True, type=int)
 
+    # --- Bulk List Creation ---
+    bulk_lists_parser = subparsers.add_parser("bulk-create-lists", 
+        help="Bulk create lists from a CSV file. CSV must have columns: title, slug")
+    bulk_lists_parser.add_argument("--input", required=True, help="Input CSV file path")
+    bulk_lists_parser.add_argument("--output", required=True, help="Output CSV file path (will include IDs)")
+    bulk_lists_parser.add_argument("--delay", type=float, default=0.5, 
+        help="Delay in seconds between API calls to avoid rate limiting (default: 0.5)")
+
     args = parser.parse_args()
     client = FluentCRMClient()
     result = None
@@ -460,6 +616,9 @@ def main():
         result = client.update_list(args.id, args.title, args.slug)
     elif args.command == "delete-list":
         result = client.delete_list(args.id)
+    elif args.command == "bulk-create-lists":
+        created = client.bulk_create_lists(args.input, args.output, args.delay)
+        print(f"\nBulk operation completed: {created} lists created successfully")
 
     if result:
         print(json.dumps(result, indent=2))
