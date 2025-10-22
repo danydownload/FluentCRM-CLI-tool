@@ -190,6 +190,55 @@ class FluentCRMClient:
         """Delete a tag by its ID."""
         return self._request("DELETE", f"tags/{tag_id}")
 
+    # --- Custom Fields Management ---
+    def get_custom_fields(self, with_field_types=False):
+        """
+        Retrieve custom fields for contacts and print as CSV.
+        
+        Args:
+            with_field_types: If True, include field type definitions in the response
+        """
+        endpoint = "custom-fields/contacts"
+        
+        # Add query parameter if field types requested
+        if with_field_types:
+            endpoint += "?with[]=field_types"
+        
+        response = self._request("GET", endpoint)
+        
+        if not isinstance(response, dict) or "fields" not in response:
+            print(f"Error: Unexpected API response format for custom fields.", file=sys.stderr)
+            print(f"Response: {json.dumps(response)}", file=sys.stderr)
+            return
+        
+        fields = response.get("fields", [])
+        
+        if fields:
+            # Flatten the structure for CSV output
+            csv_data = []
+            for field in fields:
+                row = {
+                    'field_key': field.get('field_key', ''),
+                    'type': field.get('type', ''),
+                    'label': field.get('label', ''),
+                    'slug': field.get('slug', ''),
+                    'options': '|'.join(field.get('options', [])) if 'options' in field else ''
+                }
+                csv_data.append(row)
+            
+            # Write CSV to stdout
+            fieldnames = ['field_key', 'type', 'label', 'slug', 'options']
+            writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(csv_data)
+        else:
+            print("field_key,type,label,slug,options", file=sys.stdout)
+        
+        # If field_types were requested, print them to stderr for reference
+        if with_field_types and 'field_types' in response:
+            print("\n--- Available Field Types ---", file=sys.stderr)
+            print(json.dumps(response['field_types'], indent=2), file=sys.stderr)
+
     def bulk_create_tags(self, input_csv, output_csv, delay=0.5):
         """
         Bulk create tags from a CSV file.
@@ -556,6 +605,12 @@ def main():
     delete_tag_parser = subparsers.add_parser("delete-tag", help="Delete a tag.")
     delete_tag_parser.add_argument("--id", required=True, type=int)
     
+    # --- Custom Fields Commands ---
+    get_custom_fields_parser = subparsers.add_parser("get-custom-fields", 
+        help="Retrieve all custom fields for contacts as CSV.")
+    get_custom_fields_parser.add_argument("--with-field-types", action="store_true",
+        help="Include available field type definitions in the output (printed to stderr)")
+    
     # --- Bulk Tag Creation ---
     bulk_tags_parser = subparsers.add_parser("bulk-create-tags", 
         help="Bulk create tags from a CSV file. CSV must have columns: title, slug, description (optional)")
@@ -605,6 +660,8 @@ def main():
         result = client.create_tag(args.title, args.slug, args.description)
     elif args.command == "delete-tag":
         result = client.delete_tag(args.id)
+    elif args.command == "get-custom-fields":
+        client.get_custom_fields(args.with_field_types)
     elif args.command == "bulk-create-tags":
         created = client.bulk_create_tags(args.input, args.output, args.delay)
         print(f"\nBulk operation completed: {created} tags created successfully")
